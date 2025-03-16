@@ -16,3 +16,9 @@ npm-debug.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Package files
+*.zip
+
+# Generated files
+icon-generator.html
