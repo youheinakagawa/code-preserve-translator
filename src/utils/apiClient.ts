@@ -100,12 +100,19 @@ export class ApiClient {
         temperature: requestBody.temperature
       });
       
+      // APIキーを確認
+      if (!this.settings?.apiKey) {
+        throw new Error('APIキーが設定されていません');
+      }
+      
+      console.log('使用するAPIキー（マスク済み）:', this.settings.apiKey.substring(0, 5) + '...');
+      
       // OpenAI APIを直接呼び出す
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.settings?.apiKey}`
+          'Authorization': `Bearer ${this.settings.apiKey}`
         },
         body: JSON.stringify(requestBody)
       });
@@ -113,7 +120,12 @@ export class ApiClient {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('OpenAI APIエラー詳細:', errorData);
-        throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+        
+        // エラーメッセージからURLを削除
+        let errorMessage = errorData.error?.message || response.statusText;
+        errorMessage = errorMessage.replace(/You can find your API key at https:\/\/platform\.openai\.com\/account\/api-keys/, '');
+        
+        throw new Error(`API Error: ${errorMessage}`);
       }
       
       const data = await response.json();
@@ -190,12 +202,19 @@ ${question}`;
         temperature: requestBody.temperature
       });
       
+      // APIキーを確認
+      if (!this.settings?.apiKey) {
+        throw new Error('APIキーが設定されていません');
+      }
+      
+      console.log('使用するAPIキー（マスク済み）:', this.settings.apiKey.substring(0, 5) + '...');
+      
       // OpenAI APIを直接呼び出す
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.settings?.apiKey}`
+          'Authorization': `Bearer ${this.settings.apiKey}`
         },
         body: JSON.stringify(requestBody)
       });
@@ -203,7 +222,12 @@ ${question}`;
       if (!response.ok) {
         const errorData = await response.json();
         console.error('チャット応答 OpenAI APIエラー詳細:', errorData);
-        throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+        
+        // エラーメッセージからURLを削除
+        let errorMessage = errorData.error?.message || response.statusText;
+        errorMessage = errorMessage.replace(/You can find your API key at https:\/\/platform\.openai\.com\/account\/api-keys/, '');
+        
+        throw new Error(`API Error: ${errorMessage}`);
       }
       
       const data = await response.json();
