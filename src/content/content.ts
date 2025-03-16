@@ -400,10 +400,21 @@ class ContentScript {
       script.parentNode?.removeChild(script);
     });
     
+    // インラインスクリプトを含む属性を削除
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach(el => {
+      // onclickなどのイベントハンドラ属性を削除
+      Array.from(el.attributes).forEach(attr => {
+        if (attr.name.startsWith('on') || attr.value.includes('javascript:')) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+    
     // テキスト内容を取得
     const textContent = clone.textContent || '';
     
-    // HTML形式でのコンテンツも取得（オプション）
+    // HTML形式でのコンテンツも取得
     try {
       const serializer = new XMLSerializer();
       const htmlContent = serializer.serializeToString(clone);
@@ -412,12 +423,110 @@ class ContentScript {
       // ページコンテキストにHTML形式のコンテンツも保存
       if (this.pageContext) {
         this.pageContext.htmlContent = htmlContent;
+        
+        // 構造化されたコンテンツも保存
+        this.extractStructuredContent(clone);
       }
     } catch (error) {
       console.error('HTML形式でのコンテンツ取得に失敗しました:', error);
     }
     
     return textContent.trim();
+  }
+  
+  /**
+   * 構造化されたコンテンツを抽出する
+   * @param element 構造化されたコンテンツを抽出する要素
+   */
+  private extractStructuredContent(element: Element): void {
+    if (!this.pageContext) {
+      return;
+    }
+    
+    // 構造化されたコンテンツを格納する配列
+    const structuredContent: Array<{
+      type: string;
+      content: string;
+      tag?: string;
+      attributes?: Record<string, string>;
+    }> = [];
+    
+    // 見出し要素を抽出
+    const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    headings.forEach(heading => {
+      structuredContent.push({
+        type: 'heading',
+        content: heading.textContent || '',
+        tag: heading.tagName.toLowerCase(),
+        attributes: this.getElementAttributes(heading)
+      });
+    });
+    
+    // 段落要素を抽出
+    const paragraphs = element.querySelectorAll('p');
+    paragraphs.forEach(paragraph => {
+      structuredContent.push({
+        type: 'paragraph',
+        content: paragraph.textContent || '',
+        tag: 'p',
+        attributes: this.getElementAttributes(paragraph)
+      });
+    });
+    
+    // リスト要素を抽出
+    const lists = element.querySelectorAll('ul, ol');
+    lists.forEach(list => {
+      const items = Array.from(list.querySelectorAll('li')).map(li => li.textContent || '');
+      structuredContent.push({
+        type: 'list',
+        content: items.join('\n'),
+        tag: list.tagName.toLowerCase(),
+        attributes: this.getElementAttributes(list)
+      });
+    });
+    
+    // コードブロックを抽出
+    const codeBlocks = element.querySelectorAll('pre, code');
+    codeBlocks.forEach(codeBlock => {
+      structuredContent.push({
+        type: 'code',
+        content: codeBlock.textContent || '',
+        tag: codeBlock.tagName.toLowerCase(),
+        attributes: this.getElementAttributes(codeBlock)
+      });
+    });
+    
+    // 画像要素を抽出
+    const images = element.querySelectorAll('img');
+    images.forEach(image => {
+      structuredContent.push({
+        type: 'image',
+        content: image.getAttribute('alt') || '',
+        tag: 'img',
+        attributes: this.getElementAttributes(image)
+      });
+    });
+    
+    // ページコンテキストに構造化されたコンテンツを保存
+    this.pageContext.structuredContent = structuredContent;
+  }
+  
+  /**
+   * 要素の属性を取得する
+   * @param element 属性を取得する要素
+   * @returns 属性のオブジェクト
+   */
+  private getElementAttributes(element: Element): Record<string, string> {
+    const attributes: Record<string, string> = {};
+    
+    Array.from(element.attributes).forEach(attr => {
+      // スクリプト関連の属性は除外
+      if (!attr.name.startsWith('on') && !attr.value.includes('javascript:')) {
+        attributes[attr.name] = attr.value;
+      }
+    });
+    
+    return attributes;
   }
 
   /**
@@ -500,12 +609,37 @@ class ContentScript {
       }
     }
     
-    return {
+    // レスポンスを作成
+    const response: {
+      success: boolean;
+      content: string;
+      title: string;
+      url: string;
+      htmlContent?: string;
+      structuredContent?: Array<{
+        type: string;
+        content: string;
+        tag?: string;
+        attributes?: Record<string, string>;
+      }>;
+    } = {
       success: true,
       content: this.pageContext?.content || '',
       title: document.title,
       url: window.location.href
     };
+    
+    // HTML形式のコンテンツがある場合は追加
+    if (this.pageContext?.htmlContent) {
+      response.htmlContent = this.pageContext.htmlContent;
+    }
+    
+    // 構造化されたコンテンツがある場合は追加
+    if (this.pageContext?.structuredContent) {
+      response.structuredContent = this.pageContext.structuredContent;
+    }
+    
+    return response;
   }
 
   /**

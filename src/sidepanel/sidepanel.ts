@@ -221,6 +221,9 @@ class SidePanel {
       console.log('メッセージの応答を受信しました:', response);
       
       if (response.success) {
+        // 翻訳コンテンツをクリア
+        this.translationContent.innerHTML = '';
+        
         // ページタイトルとURLを表示
         const titleElement = document.createElement('h2');
         titleElement.textContent = response.title;
@@ -230,16 +233,27 @@ class SidePanel {
         urlElement.style.fontSize = '12px';
         urlElement.style.color = '#666';
         
-        // コンテンツを表示
-        const contentElement = document.createElement('div');
-        contentElement.textContent = response.content;
-        
-        // 翻訳コンテンツをクリアして新しい内容を追加
-        this.translationContent.innerHTML = '';
         this.translationContent.appendChild(titleElement);
         this.translationContent.appendChild(urlElement);
         this.translationContent.appendChild(document.createElement('hr'));
-        this.translationContent.appendChild(contentElement);
+        
+        // 構造化されたコンテンツがある場合は、それを表示
+        if (response.structuredContent && response.structuredContent.length > 0) {
+          console.log('構造化されたコンテンツを表示します:', response.structuredContent);
+          this.displayStructuredContent(response.structuredContent);
+        } 
+        // HTML形式のコンテンツがある場合は、それを表示
+        else if (response.htmlContent) {
+          console.log('HTML形式のコンテンツを表示します');
+          this.displayHtmlContent(response.htmlContent);
+        } 
+        // それ以外の場合は、テキストコンテンツを表示
+        else {
+          console.log('テキストコンテンツを表示します');
+          const contentElement = document.createElement('div');
+          contentElement.textContent = response.content;
+          this.translationContent.appendChild(contentElement);
+        }
       } else {
         this.translationContent.textContent = 'ページコンテンツの取得に失敗しました';
       }
@@ -247,6 +261,156 @@ class SidePanel {
       console.error('ページコンテンツの取得に失敗しました:', error);
       this.translationContent.textContent = 'ページコンテンツの取得に失敗しました';
     }
+  }
+  
+  /**
+   * 構造化されたコンテンツを表示する
+   * @param structuredContent 構造化されたコンテンツ
+   */
+  private displayStructuredContent(structuredContent: Array<{
+    type: string;
+    content: string;
+    tag?: string;
+    attributes?: Record<string, string>;
+  }>) {
+    const container = document.createElement('div');
+    container.className = 'structured-content';
+    
+    structuredContent.forEach(item => {
+      let element: HTMLElement;
+      
+      switch (item.type) {
+        case 'heading':
+          // h1-h6タグを作成
+          element = document.createElement(item.tag || 'h3');
+          element.textContent = item.content;
+          break;
+          
+        case 'paragraph':
+          element = document.createElement('p');
+          element.textContent = item.content;
+          break;
+          
+        case 'list':
+          // ulまたはolタグを作成
+          element = document.createElement(item.tag === 'ol' ? 'ol' : 'ul');
+          
+          // リストアイテムを作成
+          const items = item.content.split('\n');
+          items.forEach(itemText => {
+            if (itemText.trim()) {
+              const li = document.createElement('li');
+              li.textContent = itemText;
+              element.appendChild(li);
+            }
+          });
+          break;
+          
+        case 'code':
+          // preタグとcodeタグを作成
+          const pre = document.createElement('pre');
+          element = document.createElement('code');
+          element.textContent = item.content;
+          pre.appendChild(element);
+          element = pre;
+          break;
+          
+        case 'image':
+          element = document.createElement('div');
+          element.className = 'image-placeholder';
+          
+          // 画像の代替テキストを表示
+          const altText = document.createElement('span');
+          altText.textContent = `[画像: ${item.content || '説明なし'}]`;
+          element.appendChild(altText);
+          break;
+          
+        default:
+          element = document.createElement('div');
+          element.textContent = item.content;
+      }
+      
+      // 属性を設定
+      if (item.attributes) {
+        Object.entries(item.attributes).forEach(([key, value]) => {
+          // src, href, onclickなどの危険な属性は設定しない
+          if (!['src', 'href', 'onclick', 'onerror', 'onload'].includes(key)) {
+            element.setAttribute(key, value);
+          }
+        });
+      }
+      
+      container.appendChild(element);
+    });
+    
+    this.translationContent.appendChild(container);
+  }
+  
+  /**
+   * HTML形式のコンテンツを表示する
+   * @param htmlContent HTML形式のコンテンツ
+   */
+  private displayHtmlContent(htmlContent: string) {
+    // 安全なHTMLを表示するためのコンテナ
+    const container = document.createElement('div');
+    container.className = 'html-content';
+    
+    try {
+      // DOMParserを使用してHTMLを解析
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, 'text/html');
+      
+      // 危険なタグと属性を削除
+      this.sanitizeHtml(doc.body);
+      
+      // コンテンツを追加
+      container.innerHTML = doc.body.innerHTML;
+    } catch (error) {
+      console.error('HTML形式のコンテンツの表示に失敗しました:', error);
+      container.textContent = 'HTML形式のコンテンツの表示に失敗しました';
+    }
+    
+    this.translationContent.appendChild(container);
+  }
+  
+  /**
+   * HTMLを安全にする
+   * @param element 安全にする要素
+   */
+  private sanitizeHtml(element: Element) {
+    // 危険なタグを削除
+    const dangerousTags = ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'link'];
+    
+    // 再帰的に処理
+    const processNode = (node: Element) => {
+      // 子ノードを配列に変換（ライブコレクションの変更を避けるため）
+      const childNodes = Array.from(node.children);
+      
+      childNodes.forEach(child => {
+        // 危険なタグを削除
+        if (dangerousTags.includes(child.tagName.toLowerCase())) {
+          node.removeChild(child);
+          return;
+        }
+        
+        // 危険な属性を削除
+        Array.from(child.attributes).forEach(attr => {
+          // イベントハンドラ属性やJavaScriptを含む属性を削除
+          if (attr.name.startsWith('on') || 
+              attr.value.includes('javascript:') ||
+              (attr.name === 'href' && attr.value.includes('javascript:'))) {
+            child.removeAttribute(attr.name);
+          }
+        });
+        
+        // 子要素を再帰的に処理
+        if (child.children.length > 0) {
+          processNode(child);
+        }
+      });
+    };
+    
+    processNode(element);
   }
 
   /**

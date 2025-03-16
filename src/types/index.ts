@@ -54,6 +54,20 @@ export interface ChatMessage {
 }
 
 /**
+ * 構造化されたコンテンツ要素のインターフェース
+ */
+export interface StructuredContentElement {
+  /** 要素のタイプ（heading, paragraph, list, code, image など） */
+  type: string;
+  /** 要素のテキスト内容 */
+  content: string;
+  /** HTML要素のタグ名（オプション） */
+  tag?: string;
+  /** HTML要素の属性（オプション） */
+  attributes?: Record<string, string>;
+}
+
+/**
  * ページコンテキストのインターフェース
  */
 export interface PageContext {
@@ -65,6 +79,8 @@ export interface PageContext {
   content: string;
   /** ページのHTML形式のコンテンツ（オプション） */
   htmlContent?: string;
+  /** 構造化されたコンテンツ（オプション） */
+  structuredContent?: StructuredContentElement[];
   /** 検出されたコードブロック */
   codeBlocks: CodeBlockInfo[];
   /** 翻訳済みのテキスト */
