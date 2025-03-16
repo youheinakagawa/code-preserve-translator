@@ -456,6 +456,31 @@ class ContentScript {
    * @returns ページコンテンツ
    */
   private handleGetPageContent() {
+    // ページコンテンツが空の場合は、再取得を試みる
+    if (!this.pageContext?.content || this.pageContext.content.trim().length === 0) {
+      console.log('ページコンテンツが空のため、再取得を試みます');
+      this.pageContext = this.pageContext || {
+        url: window.location.href,
+        title: document.title,
+        content: '',
+        codeBlocks: [],
+        translations: {},
+        chatHistory: [],
+        lastUpdated: Date.now()
+      };
+      
+      // ページの主要なテキスト内容を抽出
+      this.pageContext.content = this.extractPageContent();
+      console.log(`再取得したコンテンツの長さ: ${this.pageContext.content.length}文字`);
+      
+      // ページコンテンツが依然として空の場合は、ページ全体のテキストを取得
+      if (!this.pageContext.content || this.pageContext.content.trim().length === 0) {
+        console.log('再取得したコンテンツも空のため、ページ全体のテキストを取得します');
+        this.pageContext.content = document.body.innerText || document.body.textContent || '';
+        console.log(`ページ全体のテキストの長さ: ${this.pageContext.content.length}文字`);
+      }
+    }
+    
     return {
       success: true,
       content: this.pageContext?.content || '',

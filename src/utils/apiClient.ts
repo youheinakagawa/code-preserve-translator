@@ -43,6 +43,12 @@ export class ApiClient {
    * @returns 翻訳されたテキスト
    */
   async translateText(text: string): Promise<string> {
+    // 入力テキストが空の場合は処理しない
+    if (!text || text.trim().length === 0) {
+      console.warn('翻訳するテキストが空です');
+      return text;
+    }
+    
     if (!this.settings) {
       const initialized = await this.initialize();
       if (!initialized) {
@@ -152,6 +158,17 @@ export class ApiClient {
    * @returns 生成された応答
    */
   async generateChatResponse(question: string, context: string): Promise<string> {
+    // 質問または文脈が空の場合は処理しない
+    if (!question || question.trim().length === 0) {
+      console.warn('質問が空です');
+      return '質問が空です。質問を入力してください。';
+    }
+    
+    if (!context || context.trim().length === 0) {
+      console.warn('ページコンテキストが空です');
+      return 'ページコンテンツが取得できませんでした。別のページで試してください。';
+    }
+    
     if (!this.settings) {
       const initialized = await this.initialize();
       if (!initialized) {
