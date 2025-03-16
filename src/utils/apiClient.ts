@@ -108,9 +108,11 @@ export class ApiClient {
       
       // プロンプトの詳細をログに出力
       console.log('[OpenAI API] プロンプト詳細:', {
-        instructions: instructions,
-        input: text.length > 100 ? text.substring(0, 100) + '...' : text
+        instructions: instructions
       });
+      
+      // 送信するテキストを明確に表示
+      console.log('[OpenAI API] 送信テキスト: >>>\n' + text + '\n<<<');
       
       // 重複したAPIキーの確認と表示を削除
       

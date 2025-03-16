@@ -10,6 +10,15 @@ class ContentScript {
   private observer: MutationObserver | null = null;
   private pageContext: PageContext | null = null;
   private translatedElements: Set<Element> = new Set();
+  
+  /**
+   * 指定したミリ秒だけ待機する
+   * @param ms 待機するミリ秒
+   * @returns Promiseオブジェクト
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   /**
    * コンテンツスクリプトを初期化する
@@ -759,6 +768,9 @@ class ContentScript {
           ...item,
           content: translatedAlt || item.content
         });
+        
+        // レート制限を回避するために少し待機
+        await this.sleep(1000);
         continue;
       }
       
@@ -773,6 +785,9 @@ class ContentScript {
         } else {
           translatedItems.push(item);
         }
+        
+        // レート制限を回避するために少し待機
+        await this.sleep(1000);
       } else {
         translatedItems.push(item);
       }
@@ -826,6 +841,9 @@ class ContentScript {
           if (translatedText) {
             node.textContent = translatedText;
           }
+          
+          // レート制限を回避するために少し待機
+          await this.sleep(1000);
         }
       }
       // 要素ノードの場合は再帰的に処理
