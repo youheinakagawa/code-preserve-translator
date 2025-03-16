@@ -85,6 +85,21 @@ export class ApiClient {
       console.log('OpenAI APIにリクエストを送信します...');
       console.log('使用するAPIキー（一部マスク済み）:', maskedApiKey);
       
+      // リクエストの詳細をログに出力
+      const requestBody = {
+        model: 'gpt-4o',
+        instructions: instructions,
+        input: text,
+        temperature: 0.3
+      };
+      
+      console.log('OpenAI APIリクエスト詳細:', {
+        endpoint: 'https://api.openai.com/v1/responses',
+        model: requestBody.model,
+        inputLength: text.length,
+        temperature: requestBody.temperature
+      });
+      
       // OpenAI APIを直接呼び出す
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
@@ -92,21 +107,20 @@ export class ApiClient {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.settings?.apiKey}`
         },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          instructions: instructions,
-          input: text,
-          temperature: 0.3
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('OpenAI APIエラー詳細:', errorData);
         throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('OpenAI APIからレスポンスを受信しました');
+      console.log('OpenAI APIからレスポンスを受信しました', {
+        status: response.status,
+        outputLength: data.output_text ? data.output_text.length : 0
+      });
       
       return data.output_text || text;
     } catch (error) {
@@ -156,6 +170,22 @@ ${question}`;
       console.log('チャット応答を生成するためにOpenAI APIにリクエストを送信します...');
       console.log('使用するAPIキー（一部マスク済み）:', maskedApiKey);
       
+      // リクエストの詳細をログに出力
+      const requestBody = {
+        model: 'gpt-4o',
+        instructions: instructions,
+        input: input,
+        temperature: 0.7
+      };
+      
+      console.log('チャット応答 OpenAI APIリクエスト詳細:', {
+        endpoint: 'https://api.openai.com/v1/responses',
+        model: requestBody.model,
+        question: question,
+        contextLength: context.length,
+        temperature: requestBody.temperature
+      });
+      
       // OpenAI APIを直接呼び出す
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
@@ -163,21 +193,20 @@ ${question}`;
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.settings?.apiKey}`
         },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          instructions: instructions,
-          input: input,
-          temperature: 0.7
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('チャット応答 OpenAI APIエラー詳細:', errorData);
         throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('OpenAI APIからチャット応答を受信しました');
+      console.log('OpenAI APIからチャット応答を受信しました', {
+        status: response.status,
+        outputLength: data.output_text ? data.output_text.length : 0
+      });
       
       return data.output_text || '申し訳ありませんが、回答を生成できませんでした。';
     } catch (error) {

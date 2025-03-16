@@ -204,6 +204,8 @@ class ContentScript {
       }
       
       try {
+        console.log('翻訳前のテキスト:', text);
+        
         // バックグラウンドスクリプトに翻訳リクエストを送信
         const response = await browser.runtime.sendMessage({
           type: 'TRANSLATE_TEXT',
@@ -211,6 +213,8 @@ class ContentScript {
         });
         
         if (response.success && response.translatedText) {
+          console.log('翻訳後のテキスト:', response.translatedText);
+          
           // テキストノードを翻訳テキストで置き換え
           node.nodeValue = response.translatedText;
           
