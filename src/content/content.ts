@@ -304,6 +304,8 @@ class ContentScript {
    * @returns 抽出されたテキスト
    */
   private extractPageContent(): string {
+    console.log('ページコンテンツを抽出しています...');
+    
     // 主要なコンテンツを含む要素のセレクタ
     const contentSelectors = [
       'article',
@@ -313,16 +315,31 @@ class ContentScript {
       '.post',
       '.entry',
       '#content',
-      '#main'
+      '#main',
+      // OpenAI Platformのドキュメントページ用のセレクタを追加
+      '.docs-content',
+      '.markdown-content',
+      '.api-docs',
+      '.documentation',
+      // 一般的なドキュメントページのセレクタ
+      '.doc-content',
+      '.page-content',
+      '.main-content',
+      // フォールバックとして、より一般的なセレクタ
+      'div[role="main"]',
+      'section',
+      '.container'
     ];
     
     // セレクタに一致する要素を検索
     let contentElement: Element | null = null;
+    let usedSelector: string = '';
     
     for (const selector of contentSelectors) {
       const element = document.querySelector(selector);
-      if (element) {
+      if (element && element.textContent && element.textContent.trim().length > 0) {
         contentElement = element;
+        usedSelector = selector;
         break;
       }
     }
@@ -330,10 +347,16 @@ class ContentScript {
     // 一致する要素がない場合はbody要素を使用
     if (!contentElement) {
       contentElement = document.body;
+      usedSelector = 'body';
     }
     
+    console.log(`コンテンツ要素が見つかりました: ${usedSelector}`);
+    
     // テキスト内容を抽出
-    return this.extractTextContent(contentElement);
+    const content = this.extractTextContent(contentElement);
+    console.log(`抽出されたコンテンツの長さ: ${content.length}文字`);
+    
+    return content;
   }
 
   /**

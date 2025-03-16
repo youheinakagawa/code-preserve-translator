@@ -119,10 +119,14 @@ export class ApiClient {
       const data = await response.json();
       console.log('OpenAI APIからレスポンスを受信しました', {
         status: response.status,
-        outputLength: data.output_text ? data.output_text.length : 0
+        data: data
       });
       
-      return data.output_text || text;
+      // レスポンスの形式に応じて適切なフィールドを取得
+      const translatedText = data.output || data.output_text || data.choices?.[0]?.message?.content || text;
+      console.log('翻訳されたテキスト:', translatedText);
+      
+      return translatedText;
     } catch (error) {
       console.error('OpenAI APIリクエストに失敗しました:', error);
       throw error;
@@ -205,10 +209,14 @@ ${question}`;
       const data = await response.json();
       console.log('OpenAI APIからチャット応答を受信しました', {
         status: response.status,
-        outputLength: data.output_text ? data.output_text.length : 0
+        data: data
       });
       
-      return data.output_text || '申し訳ありませんが、回答を生成できませんでした。';
+      // レスポンスの形式に応じて適切なフィールドを取得
+      const responseText = data.output || data.output_text || data.choices?.[0]?.message?.content || '申し訳ありませんが、回答を生成できませんでした。';
+      console.log('チャット応答テキスト:', responseText);
+      
+      return responseText;
     } catch (error) {
       console.error('チャット応答の生成に失敗しました:', error);
       throw error;
