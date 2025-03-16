@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { getSettings, saveSettings, savePageContext, getPageContext } from '@/utils/storage';
-import { translationEngine } from '@/utils/translationEngine';
+import { apiClient } from '@/utils/apiClient';
 import { PageContext } from '@/types';
 
 /**
@@ -14,12 +14,24 @@ async function initialize() {
     if (details.reason === 'install') {
       // 初回インストール時の処理
       console.log('Code Preserve Translator: 初回インストール');
-      browser.tabs.create({
-url: browser.runtime.getURL('popup.html#welcome')
-      });
+      // インストール時のポップアップを表示しない
     } else if (details.reason === 'update') {
       // 更新時の処理
       console.log(`Code Preserve Translator: バージョン ${browser.runtime.getManifest().version} に更新されました`);
+    }
+  });
+  
+  // アイコンがクリックされたときの処理
+  browser.action.onClicked.addListener(async (tab) => {
+    // サイドパネルを開く
+    try {
+      // TypeScriptの型定義にsidePanelがないため、anyにキャストして回避
+      const browserAny = browser as any;
+      if (browserAny.sidePanel && browserAny.sidePanel.open) {
+        await browserAny.sidePanel.open({ tabId: tab.id });
+      }
+    } catch (error) {
+      console.error('サイドパネルを開けませんでした:', error);
     }
   });
   
@@ -67,7 +79,7 @@ function setupMessageListeners() {
  */
 async function handleTranslateText(text: string) {
   try {
-    const translatedText = await translationEngine.translateText(text);
+    const translatedText = await apiClient.translateText(text);
     return { success: true, translatedText };
   } catch (error) {
     console.error('翻訳に失敗しました:', error);
@@ -77,6 +89,7 @@ async function handleTranslateText(text: string) {
     };
   }
 }
+
 
 /**
  * ページコンテキスト保存リクエストの処理
@@ -131,7 +144,7 @@ async function handleChatQuery(query: string, url: string) {
       };
     }
     
-    const response = await translationEngine.generateChatResponse(
+    const response = await apiClient.generateChatResponse(
       query, 
       context.content
     );
@@ -169,6 +182,7 @@ async function handleChatQuery(query: string, url: string) {
 async function handleGetSettings() {
   try {
     const settings = await getSettings();
+    console.log('バックグラウンドスクリプトで取得した設定:', settings);
     return { success: true, settings };
   } catch (error) {
     console.error('設定の取得に失敗しました:', error);
@@ -186,7 +200,18 @@ async function handleGetSettings() {
  */
 async function handleSaveSettings(settings: any) {
   try {
+    console.log('バックグラウンドスクリプトで保存する設定:', settings);
+    
+    // APIキーの最初の10文字と最後の5文字を表示（セキュリティのため）
+    const apiKey = settings.apiKey || '';
+    const maskedApiKey = apiKey.length > 15 
+      ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 5)}`
+      : apiKey;
+    
+    console.log('保存するAPIキー（一部マスク済み）:', maskedApiKey);
+    
     await saveSettings(settings);
+    console.log('設定の保存に成功しました');
     return { success: true };
   } catch (error) {
     console.error('設定の保存に失敗しました:', error);

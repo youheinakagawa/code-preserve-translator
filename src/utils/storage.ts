@@ -15,7 +15,9 @@ export const DEFAULT_SETTINGS: TranslationSettings = {
  * @param settings 保存する設定
  */
 export async function saveSettings(settings: TranslationSettings): Promise<void> {
+  console.log('保存する設定:', settings);
   await browser.storage.sync.set({ settings });
+  console.log('設定を保存しました');
 }
 
 /**
@@ -24,6 +26,7 @@ export async function saveSettings(settings: TranslationSettings): Promise<void>
  */
 export async function getSettings(): Promise<TranslationSettings> {
   const result = await browser.storage.sync.get('settings');
+  console.log('取得した設定:', result.settings || DEFAULT_SETTINGS);
   return result.settings || DEFAULT_SETTINGS;
 }
 

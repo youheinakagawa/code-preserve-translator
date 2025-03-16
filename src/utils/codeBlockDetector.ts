@@ -25,15 +25,22 @@ export class CodeBlockDetector {
       '.code-block',
       '.hljs',
       '.CodeMirror',
-      '.prism-code',
-      'code.language-*',
-      'code.lang-*'
+      '.prism-code'
     ];
     
     // セレクタに一致する要素を検索
     const codeElements = document.querySelectorAll(codeSelectors.join(', '));
     
-    codeElements.forEach((element) => {
+    // 言語クラスを持つコード要素を検索
+    const languageCodeElements = Array.from(document.querySelectorAll('code')).filter(element => {
+      const classNames = Array.from(element.classList);
+      return classNames.some(className => className.startsWith('language-') || className.startsWith('lang-'));
+    });
+    
+    // 両方の結果を結合
+    const allCodeElements = [...Array.from(codeElements), ...languageCodeElements];
+    
+    allCodeElements.forEach((element) => {
       const content = element.textContent || '';
       
       // 空のコードブロックはスキップ
@@ -86,7 +93,7 @@ export class CodeBlockDetector {
     
     textElements.forEach((element) => {
       // すでに検出されたコードブロック内の要素はスキップ
-      if (codeElements.length > 0 && Array.from(codeElements).some(codeEl => 
+      if (allCodeElements.length > 0 && allCodeElements.some(codeEl => 
         codeEl.contains(element) || element.contains(codeEl)
       )) {
         return;

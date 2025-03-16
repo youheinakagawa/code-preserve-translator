@@ -158,6 +158,27 @@ class ContentScript {
   }
 
   /**
+   * 要素内のテキストノードを取得する
+   * @param element テキストノードを取得する要素
+   * @returns テキストノードの配列
+   */
+  private getTextNodes(element: Element): Text[] {
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    
+    let node: Node | null;
+    while (node = walker.nextNode()) {
+      textNodes.push(node as Text);
+    }
+    
+    return textNodes;
+  }
+
+  /**
    * 要素を翻訳する
    * @param element 翻訳する要素
    */
@@ -273,26 +294,6 @@ class ContentScript {
     return false;
   }
 
-  /**
-   * 要素内のテキストノードを取得する
-   * @param element テキストノードを取得する要素
-   * @returns テキストノードの配列
-   */
-  private getTextNodes(element: Element): Text[] {
-    const textNodes: Text[] = [];
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-    
-    let node: Node | null;
-    while (node = walker.nextNode()) {
-      textNodes.push(node as Text);
-    }
-    
-    return textNodes;
-  }
 
   /**
    * ページの主要なテキスト内容を抽出する
