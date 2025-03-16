@@ -81,6 +81,12 @@ export interface PageContext {
   htmlContent?: string;
   /** 構造化されたコンテンツ（オプション） */
   structuredContent?: StructuredContentElement[];
+  /** 翻訳されたテキストコンテンツ（オプション） */
+  translatedContent?: string;
+  /** 翻訳されたHTML形式のコンテンツ（オプション） */
+  translatedHtmlContent?: string;
+  /** 翻訳された構造化されたコンテンツ（オプション） */
+  translatedStructuredContent?: StructuredContentElement[];
   /** 検出されたコードブロック */
   codeBlocks: CodeBlockInfo[];
   /** 翻訳済みのテキスト */

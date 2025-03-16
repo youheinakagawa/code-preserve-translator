@@ -622,6 +622,14 @@ class ContentScript {
         tag?: string;
         attributes?: Record<string, string>;
       }>;
+      translatedContent?: string;
+      translatedHtmlContent?: string;
+      translatedStructuredContent?: Array<{
+        type: string;
+        content: string;
+        tag?: string;
+        attributes?: Record<string, string>;
+      }>;
     } = {
       success: true,
       content: this.pageContext?.content || '',
@@ -639,6 +647,21 @@ class ContentScript {
       response.structuredContent = this.pageContext.structuredContent;
     }
     
+    // 翻訳されたコンテンツがある場合は追加
+    if (this.pageContext?.translatedContent) {
+      response.translatedContent = this.pageContext.translatedContent;
+    }
+    
+    // 翻訳されたHTML形式のコンテンツがある場合は追加
+    if (this.pageContext?.translatedHtmlContent) {
+      response.translatedHtmlContent = this.pageContext.translatedHtmlContent;
+    }
+    
+    // 翻訳された構造化されたコンテンツがある場合は追加
+    if (this.pageContext?.translatedStructuredContent) {
+      response.translatedStructuredContent = this.pageContext.translatedStructuredContent;
+    }
+    
     return response;
   }
 
@@ -647,7 +670,222 @@ class ContentScript {
    * @returns 処理結果
    */
   private async handleTranslatePage() {
-    return this.toggleTranslation();
+    console.log('ページ翻訳リクエストを処理します');
+    
+    // ページコンテンツが空の場合は、再取得を試みる
+    if (!this.pageContext?.content || this.pageContext.content.trim().length === 0) {
+      console.log('翻訳前にページコンテンツを再取得します');
+      this.pageContext = this.pageContext || {
+        url: window.location.href,
+        title: document.title,
+        content: '',
+        codeBlocks: [],
+        translations: {},
+        chatHistory: [],
+        lastUpdated: Date.now()
+      };
+      
+      // ページの主要なテキスト内容を抽出
+      this.pageContext.content = this.extractPageContent();
+    }
+    
+    try {
+      console.log('翻訳を開始します...');
+      
+      // 構造化されたコンテンツがある場合は、それを翻訳
+      if (this.pageContext?.structuredContent && this.pageContext.structuredContent.length > 0) {
+        console.log('構造化されたコンテンツを翻訳します');
+        await this.translateStructuredContent();
+      } 
+      // HTML形式のコンテンツがある場合は、テキストノードを抽出して翻訳
+      else if (this.pageContext?.htmlContent) {
+        console.log('HTML形式のコンテンツを翻訳します');
+        await this.translateHtmlContent();
+      }
+      // それ以外の場合は、テキストコンテンツを翻訳
+      else if (this.pageContext?.content) {
+        console.log('テキストコンテンツを翻訳します');
+        const translatedText = await this.translateText(this.pageContext.content);
+        if (translatedText && this.pageContext) {
+          this.pageContext.translatedContent = translatedText;
+        }
+      }
+      
+      console.log('翻訳が完了しました');
+      
+      // ページコンテキストを保存
+      await this.savePageContext();
+      
+      return { 
+        success: true, 
+        isTranslating: true,
+        message: '翻訳が完了しました'
+      };
+    } catch (error) {
+      console.error('翻訳に失敗しました:', error);
+      return { 
+        success: false, 
+        error: '翻訳に失敗しました: ' + (error instanceof Error ? error.message : String(error))
+      };
+    }
+  }
+  
+  /**
+   * 構造化されたコンテンツを翻訳する
+   */
+  private async translateStructuredContent(): Promise<void> {
+    if (!this.pageContext?.structuredContent) {
+      return;
+    }
+    
+    const translatedItems: Array<{
+      type: string;
+      content: string;
+      tag?: string;
+      attributes?: Record<string, string>;
+    }> = [];
+    
+    for (const item of this.pageContext.structuredContent) {
+      // コードブロックは翻訳しない
+      if (item.type === 'code') {
+        translatedItems.push(item);
+        continue;
+      }
+      
+      // 画像の代替テキストは翻訳する
+      if (item.type === 'image' && item.content) {
+        const translatedAlt = await this.translateText(item.content);
+        translatedItems.push({
+          ...item,
+          content: translatedAlt || item.content
+        });
+        continue;
+      }
+      
+      // その他のコンテンツを翻訳
+      if (item.content) {
+        const translatedText = await this.translateText(item.content);
+        if (translatedText) {
+          translatedItems.push({
+            ...item,
+            content: translatedText
+          });
+        } else {
+          translatedItems.push(item);
+        }
+      } else {
+        translatedItems.push(item);
+      }
+    }
+    
+    // 翻訳された構造化コンテンツを保存
+    this.pageContext.translatedStructuredContent = translatedItems;
+  }
+  
+  /**
+   * HTML形式のコンテンツを翻訳する
+   */
+  private async translateHtmlContent(): Promise<void> {
+    if (!this.pageContext?.htmlContent) {
+      return;
+    }
+    
+    try {
+      // DOMParserを使用してHTMLを解析
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(this.pageContext.htmlContent, 'text/html');
+      
+      // テキストノードを抽出して翻訳
+      await this.translateTextNodes(doc.body);
+      
+      // 翻訳されたHTMLを保存
+      const serializer = new XMLSerializer();
+      this.pageContext.translatedHtmlContent = serializer.serializeToString(doc.body);
+    } catch (error) {
+      console.error('HTML形式のコンテンツの翻訳に失敗しました:', error);
+    }
+  }
+  
+  /**
+   * 要素内のテキストノードを再帰的に翻訳する
+   * @param element 翻訳する要素
+   */
+  private async translateTextNodes(element: Element): Promise<void> {
+    // 翻訳しない要素のタグ名
+    const excludedTags = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE'];
+    
+    // 子ノードを配列に変換（ライブコレクションの変更を避けるため）
+    const childNodes = Array.from(element.childNodes);
+    
+    for (const node of childNodes) {
+      // テキストノードの場合
+      if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+        const text = node.textContent.trim();
+        if (text.length > 0) {
+          const translatedText = await this.translateText(text);
+          if (translatedText) {
+            node.textContent = translatedText;
+          }
+        }
+      }
+      // 要素ノードの場合は再帰的に処理
+      else if (node.nodeType === Node.ELEMENT_NODE) {
+        const childElement = node as Element;
+        
+        // 翻訳しない要素はスキップ
+        if (!excludedTags.includes(childElement.tagName)) {
+          await this.translateTextNodes(childElement);
+        }
+      }
+    }
+  }
+  
+  /**
+   * テキストを翻訳する
+   * @param text 翻訳するテキスト
+   * @returns 翻訳されたテキスト
+   */
+  private async translateText(text: string): Promise<string | null> {
+    if (!text || text.trim().length === 0) {
+      return null;
+    }
+    
+    try {
+      console.log('テキストを翻訳します:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+      
+      // キャッシュから翻訳を取得
+      if (this.pageContext?.translations[text]) {
+        console.log('キャッシュから翻訳を取得しました');
+        return this.pageContext.translations[text].translatedText;
+      }
+      
+      // バックグラウンドスクリプトに翻訳リクエストを送信
+      const response = await browser.runtime.sendMessage({
+        type: 'TRANSLATE_TEXT',
+        text
+      });
+      
+      if (response.success && response.translatedText) {
+        console.log('翻訳に成功しました');
+        
+        // ページコンテキストに翻訳を保存
+        if (this.pageContext) {
+          this.pageContext.translations[text] = {
+            originalText: text,
+            translatedText: response.translatedText,
+            timestamp: Date.now()
+          };
+        }
+        
+        return response.translatedText;
+      } else {
+        console.error('翻訳に失敗しました:', response.error || '不明なエラー');
+        return null;
+      }
+    } catch (error) {
+      console.error('翻訳に失敗しました:', error);
+      return null;
+    }
   }
 
   /**

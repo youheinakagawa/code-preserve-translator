@@ -237,6 +237,14 @@ class SidePanel {
         this.translationContent.appendChild(urlElement);
         this.translationContent.appendChild(document.createElement('hr'));
         
+        // 翻訳ボタンを表示
+        const translateButton = document.createElement('button');
+        translateButton.textContent = '翻訳する';
+        translateButton.className = 'translate-button';
+        translateButton.addEventListener('click', () => this.translatePageContent());
+        this.translationContent.appendChild(translateButton);
+        this.translationContent.appendChild(document.createElement('hr'));
+        
         // 構造化されたコンテンツがある場合は、それを表示
         if (response.structuredContent && response.structuredContent.length > 0) {
           console.log('構造化されたコンテンツを表示します:', response.structuredContent);
@@ -264,17 +272,140 @@ class SidePanel {
   }
   
   /**
+   * ページコンテンツを翻訳する
+   */
+  private async translatePageContent() {
+    if (!this.currentTabId) {
+      this.showTranslationStatus('アクティブなタブが見つかりません', false);
+      return;
+    }
+    
+    console.log('ページコンテンツを翻訳します。タブID:', this.currentTabId);
+    
+    try {
+      // 翻訳中の表示
+      const translateButton = this.translationContent.querySelector('.translate-button');
+      if (translateButton) {
+        translateButton.textContent = '翻訳中...';
+        translateButton.setAttribute('disabled', 'true');
+      }
+      
+      // 翻訳リクエストを送信
+      console.log('メッセージを送信します:', { type: 'TRANSLATE_PAGE' }, 'タブID:', this.currentTabId);
+      const response = await browser.tabs.sendMessage(this.currentTabId, {
+        type: 'TRANSLATE_PAGE'
+      });
+      console.log('メッセージの応答を受信しました:', response);
+      
+      if (response.success) {
+        this.showTranslationStatus('翻訳が完了しました', true);
+        
+        // 翻訳後にページコンテンツを再読み込み
+        await this.loadTranslatedContent();
+      } else {
+        this.showTranslationStatus('翻訳に失敗しました: ' + (response.error || '不明なエラー'), false);
+        
+        // ボタンを元に戻す
+        if (translateButton) {
+          translateButton.textContent = '翻訳する';
+          translateButton.removeAttribute('disabled');
+        }
+      }
+    } catch (error) {
+      console.error('翻訳に失敗しました:', error);
+      this.showTranslationStatus('翻訳に失敗しました', false);
+      
+      // ボタンを元に戻す
+      const translateButton = this.translationContent.querySelector('.translate-button');
+      if (translateButton) {
+        translateButton.textContent = '翻訳する';
+        translateButton.removeAttribute('disabled');
+      }
+    }
+  }
+  
+  /**
+   * 翻訳されたコンテンツを読み込む
+   */
+  private async loadTranslatedContent() {
+    if (!this.currentTabId) {
+      return;
+    }
+    
+    console.log('翻訳されたコンテンツを取得します。タブID:', this.currentTabId);
+    
+    try {
+      // 翻訳されたコンテンツを取得
+      const response = await browser.tabs.sendMessage(this.currentTabId, {
+        type: 'GET_PAGE_CONTENT'
+      });
+      
+      if (response.success) {
+        // 翻訳ボタンを更新
+        const translateButton = this.translationContent.querySelector('.translate-button');
+        if (translateButton) {
+          translateButton.textContent = '翻訳済み';
+          translateButton.setAttribute('disabled', 'true');
+        }
+        
+        // 翻訳されたコンテンツを表示するコンテナ
+        const translatedContainer = document.createElement('div');
+        translatedContainer.className = 'translated-content';
+        
+        // 翻訳されたコンテンツを表示
+        if (response.translatedStructuredContent && response.translatedStructuredContent.length > 0) {
+          console.log('翻訳された構造化コンテンツを表示します');
+          this.displayStructuredContent(response.translatedStructuredContent, translatedContainer);
+        }
+        else if (response.translatedHtmlContent) {
+          console.log('翻訳されたHTML形式のコンテンツを表示します');
+          this.displayHtmlContent(response.translatedHtmlContent, translatedContainer);
+        }
+        else if (response.translatedContent) {
+          console.log('翻訳されたテキストコンテンツを表示します');
+          const contentElement = document.createElement('div');
+          contentElement.textContent = response.translatedContent;
+          translatedContainer.appendChild(contentElement);
+        }
+        else {
+          console.log('翻訳されたコンテンツがありません');
+          return;
+        }
+        
+        // 既存のコンテンツを置き換え
+        const existingContent = this.translationContent.querySelector('.structured-content, .html-content');
+        if (existingContent) {
+          this.translationContent.replaceChild(translatedContainer, existingContent);
+        } else {
+          // 既存のコンテンツがない場合は、翻訳ボタンの後に追加
+          const hr = this.translationContent.querySelector('hr:last-of-type');
+          if (hr) {
+            this.translationContent.insertBefore(translatedContainer, hr.nextSibling);
+          } else {
+            this.translationContent.appendChild(translatedContainer);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('翻訳されたコンテンツの取得に失敗しました:', error);
+    }
+  }
+  
+  /**
    * 構造化されたコンテンツを表示する
    * @param structuredContent 構造化されたコンテンツ
+   * @param targetContainer 表示先のコンテナ（省略時は翻訳コンテンツに追加）
    */
   private displayStructuredContent(structuredContent: Array<{
     type: string;
     content: string;
     tag?: string;
     attributes?: Record<string, string>;
-  }>) {
-    const container = document.createElement('div');
-    container.className = 'structured-content';
+  }>, targetContainer?: HTMLElement) {
+    const container = targetContainer || document.createElement('div');
+    if (!targetContainer) {
+      container.className = 'structured-content';
+    }
     
     structuredContent.forEach(item => {
       let element: HTMLElement;
@@ -349,11 +480,14 @@ class SidePanel {
   /**
    * HTML形式のコンテンツを表示する
    * @param htmlContent HTML形式のコンテンツ
+   * @param targetContainer 表示先のコンテナ（省略時は翻訳コンテンツに追加）
    */
-  private displayHtmlContent(htmlContent: string) {
+  private displayHtmlContent(htmlContent: string, targetContainer?: HTMLElement) {
     // 安全なHTMLを表示するためのコンテナ
-    const container = document.createElement('div');
-    container.className = 'html-content';
+    const container = targetContainer || document.createElement('div');
+    if (!targetContainer) {
+      container.className = 'html-content';
+    }
     
     try {
       // DOMParserを使用してHTMLを解析
