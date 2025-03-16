@@ -82,16 +82,16 @@ export class ApiClient {
 4. マークダウン形式は保持してください。
 5. 原文の意味を正確に伝えることを優先してください。`;
 
-      // APIキーの最初の10文字と最後の5文字を表示（セキュリティのため）
-      const apiKey = this.settings?.apiKey || '';
-      const maskedApiKey = apiKey.length > 15 
-        ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 5)}`
-        : '設定されていません';
+      // APIキーの確認
+      if (!this.settings?.apiKey) {
+        throw new Error('APIキーが設定されていません');
+      }
       
-      console.log('OpenAI APIにリクエストを送信します...');
-      console.log('使用するAPIキー（一部マスク済み）:', maskedApiKey);
+      // APIキーの最初の5文字を表示（セキュリティのため）
+      const maskedApiKey = this.settings.apiKey.substring(0, 5) + '...';
+      console.log('[OpenAI API] 使用するAPIキー（マスク済み）:', maskedApiKey);
       
-      // リクエストの詳細をログに出力
+      // OpenAI APIリクエストの詳細をログに出力
       const requestBody = {
         model: 'gpt-4o',
         instructions: instructions,
@@ -99,19 +99,20 @@ export class ApiClient {
         temperature: 0.3
       };
       
-      console.log('OpenAI APIリクエスト詳細:', {
+      console.log('[OpenAI API] リクエスト詳細:', {
         endpoint: 'https://api.openai.com/v1/responses',
         model: requestBody.model,
         inputLength: text.length,
         temperature: requestBody.temperature
       });
       
-      // APIキーを確認
-      if (!this.settings?.apiKey) {
-        throw new Error('APIキーが設定されていません');
-      }
+      // プロンプトの詳細をログに出力
+      console.log('[OpenAI API] プロンプト詳細:', {
+        instructions: instructions,
+        input: text.length > 100 ? text.substring(0, 100) + '...' : text
+      });
       
-      console.log('使用するAPIキー（マスク済み）:', this.settings.apiKey.substring(0, 5) + '...');
+      // 重複したAPIキーの確認と表示を削除
       
       // OpenAI APIを直接呼び出す
       const response = await fetch('https://api.openai.com/v1/responses', {
@@ -135,14 +136,17 @@ export class ApiClient {
       }
       
       const data = await response.json();
-      console.log('OpenAI APIからレスポンスを受信しました', {
+      console.log('[OpenAI API] レスポンス受信:', {
         status: response.status,
-        data: data
+        responseType: Object.keys(data).join(', ')
       });
+      
+      // レスポンスの詳細をログに出力
+      console.log('[OpenAI API] レスポンス詳細:', data);
       
       // レスポンスの形式に応じて適切なフィールドを取得
       const translatedText = data.output || data.output_text || data.choices?.[0]?.message?.content || text;
-      console.log('翻訳されたテキスト:', translatedText);
+      console.log('[OpenAI API] 翻訳結果:', translatedText);
       
       return translatedText;
     } catch (error) {
@@ -194,16 +198,16 @@ ${context}
 ユーザーの質問:
 ${question}`;
 
-      // APIキーの最初の10文字と最後の5文字を表示（セキュリティのため）
-      const apiKey = this.settings?.apiKey || '';
-      const maskedApiKey = apiKey.length > 15 
-        ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 5)}`
-        : '設定されていません';
+      // APIキーの確認
+      if (!this.settings?.apiKey) {
+        throw new Error('APIキーが設定されていません');
+      }
       
-      console.log('チャット応答を生成するためにOpenAI APIにリクエストを送信します...');
-      console.log('使用するAPIキー（一部マスク済み）:', maskedApiKey);
+      // APIキーの最初の5文字を表示（セキュリティのため）
+      const maskedApiKey = this.settings.apiKey.substring(0, 5) + '...';
+      console.log('[OpenAI API] 使用するAPIキー（マスク済み）:', maskedApiKey);
       
-      // リクエストの詳細をログに出力
+      // OpenAI APIリクエストの詳細をログに出力
       const requestBody = {
         model: 'gpt-4o',
         instructions: instructions,
@@ -211,7 +215,7 @@ ${question}`;
         temperature: 0.7
       };
       
-      console.log('チャット応答 OpenAI APIリクエスト詳細:', {
+      console.log('[OpenAI API] チャット応答リクエスト詳細:', {
         endpoint: 'https://api.openai.com/v1/responses',
         model: requestBody.model,
         question: question,
@@ -219,12 +223,14 @@ ${question}`;
         temperature: requestBody.temperature
       });
       
-      // APIキーを確認
-      if (!this.settings?.apiKey) {
-        throw new Error('APIキーが設定されていません');
-      }
+      // プロンプトの詳細をログに出力
+      console.log('[OpenAI API] チャット応答プロンプト詳細:', {
+        instructions: instructions,
+        question: question,
+        contextLength: context.length
+      });
       
-      console.log('使用するAPIキー（マスク済み）:', this.settings.apiKey.substring(0, 5) + '...');
+      // 重複したAPIキーの確認と表示を削除
       
       // OpenAI APIを直接呼び出す
       const response = await fetch('https://api.openai.com/v1/responses', {
@@ -248,14 +254,17 @@ ${question}`;
       }
       
       const data = await response.json();
-      console.log('OpenAI APIからチャット応答を受信しました', {
+      console.log('[OpenAI API] チャット応答レスポンス受信:', {
         status: response.status,
-        data: data
+        responseType: Object.keys(data).join(', ')
       });
+      
+      // レスポンスの詳細をログに出力
+      console.log('[OpenAI API] チャット応答レスポンス詳細:', data);
       
       // レスポンスの形式に応じて適切なフィールドを取得
       const responseText = data.output || data.output_text || data.choices?.[0]?.message?.content || '申し訳ありませんが、回答を生成できませんでした。';
-      console.log('チャット応答テキスト:', responseText);
+      console.log('[OpenAI API] チャット応答結果:', responseText);
       
       return responseText;
     } catch (error) {

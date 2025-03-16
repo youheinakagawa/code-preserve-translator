@@ -63,6 +63,8 @@ export interface PageContext {
   title: string;
   /** ページの主要なテキスト内容 */
   content: string;
+  /** ページのHTML形式のコンテンツ（オプション） */
+  htmlContent?: string;
   /** 検出されたコードブロック */
   codeBlocks: CodeBlockInfo[];
   /** 翻訳済みのテキスト */

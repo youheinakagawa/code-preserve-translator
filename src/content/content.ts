@@ -376,27 +376,46 @@ class ContentScript {
       '.menu',
       '.comments',
       '.ads',
-      '.advertisement'
+      '.advertisement',
+      'script',
+      'style',
+      'noscript',
+      'iframe'
     ];
     
-    // 除外する要素を一時的に非表示にする
-    const excludedElements: Element[] = [];
+    // 要素のクローンを作成して、除外要素を削除
+    const clone = element.cloneNode(true) as Element;
     
+    // 除外する要素を削除
     for (const selector of excludeSelectors) {
-      const elements = element.querySelectorAll(selector);
+      const elements = clone.querySelectorAll(selector);
       elements.forEach(el => {
-        excludedElements.push(el);
-        (el as HTMLElement).style.display = 'none';
+        el.parentNode?.removeChild(el);
       });
     }
     
-    // テキスト内容を取得
-    const textContent = element.textContent || '';
-    
-    // 除外した要素を元に戻す
-    excludedElements.forEach(el => {
-      (el as HTMLElement).style.display = '';
+    // scriptタグの内容を削除
+    const scripts = clone.querySelectorAll('script');
+    scripts.forEach(script => {
+      script.parentNode?.removeChild(script);
     });
+    
+    // テキスト内容を取得
+    const textContent = clone.textContent || '';
+    
+    // HTML形式でのコンテンツも取得（オプション）
+    try {
+      const serializer = new XMLSerializer();
+      const htmlContent = serializer.serializeToString(clone);
+      console.log('HTML形式でのコンテンツ長さ:', htmlContent.length);
+      
+      // ページコンテキストにHTML形式のコンテンツも保存
+      if (this.pageContext) {
+        this.pageContext.htmlContent = htmlContent;
+      }
+    } catch (error) {
+      console.error('HTML形式でのコンテンツ取得に失敗しました:', error);
+    }
     
     return textContent.trim();
   }
